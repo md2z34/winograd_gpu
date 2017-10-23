@@ -1,3 +1,4 @@
+#pragma once
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #include "debug.h"
@@ -28,7 +29,7 @@ void cpy_mat12_call(FLOAT *Fw_d, FLOAT *Iw_d,
 void cpy_to_Mw_call(FLOAT *Mw_d, FLOAT *matout_d,
 	int s, int t, int Xw, int Yw,
 	int D, int N, int K);
-void Ow_call(FLOAT *O_d, FLOAT *Mw_d,
+FLOAT Ow_call(FLOAT *O_d, FLOAT *Mw_d,
 	int plen, int qlen, int Xw, int Yw,
 	int p, int q,
 	int x, int y,

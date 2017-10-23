@@ -184,6 +184,7 @@ cudaError_t xprop_winograd(FLOAT *I, int lenI, FLOAT *F, int lenF, FLOAT *O, int
 	}
 
 	// Iterate over the convovled result in the pointwise space and apply inverse transform
+	FLOAT summa_time;
 	for (int y = 0; y < Yw; ++y) {
 		int p = y*B;
 		int plen = ((p + 1) < P) ? 2 : 1;
@@ -191,10 +192,12 @@ cudaError_t xprop_winograd(FLOAT *I, int lenI, FLOAT *F, int lenF, FLOAT *O, int
 			int q = x*B;
 			int qlen = ((q + 1) < Q) ? 2 : 1;
 
-			Ow_call(Ow_d, Mw_d, plen, qlen, Xw, Yw, p, q, x, y, D, N, K);
+			summa_time = Ow_call(Ow_d, Mw_d, plen, qlen, Xw, Yw, p, q, x, y, D, N, K);
 		}
 	}
-
+	printf("-------------------------------------\n");
+	printf("Total GPU time: %f [ms]\n", summa_time);
+	printf("-------------------------------------\n");
 	// Copy output vector from GPU buffer to host memory.
 	cudaStatus = cudaMemcpy(O, Ow_d, lenO * sizeof(FLOAT), cudaMemcpyDeviceToHost);
 	if (cudaStatus != cudaSuccess) {

@@ -73,7 +73,6 @@ int main()
 		fprintf(Ow_file, "%f;", Ow[a]);
 	}
 	fclose(Ow_file);
-
 	free(I);
 	free(F);
 	free(Ow);

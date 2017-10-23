@@ -95,6 +95,7 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     <CudaCompile Include="main.cu" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="cudatimer.h" />
     <ClInclude Include="debug.h" />
     <ClInclude Include="kernels.h" />
     <ClInclude Include="xprop_winograd.h" />

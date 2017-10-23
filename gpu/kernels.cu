@@ -2,8 +2,12 @@
 #include "debug.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include "cudatimer.h"
+
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
+
+FLOAT summa_time = 0.0;
 
 __device__ __host__ void trans_F_2x2_3x3(FLOAT Fw[4][4], FLOAT F[3][3])
 {
@@ -259,8 +263,10 @@ void Fw_call(FLOAT *F_d, int lenF, FLOAT *Fw_d, int lenFw, int D, int C, int K) 
 	grid.y = GRD_Y;
 	cudaError_t cudaStatus;
 
+	cudaTimer time_Fw;
+	time_Fw.start();
 	Fw_kernel <<<grid, block >>> (F_d, lenF, Fw_d, lenFw, D, C, K);
-	
+	time_Fw.stop();
 	// Check for any errors launching the kernel
 	cudaStatus = cudaGetLastError();
 	if (cudaStatus != cudaSuccess) {
@@ -277,6 +283,8 @@ void Fw_call(FLOAT *F_d, int lenF, FLOAT *Fw_d, int lenFw, int D, int C, int K) 
 		//goto Error;
 		exit(1);
 	}
+	summa_time += time_Fw.elapsedTime();
+	printf("Fw_kernel time: %f [ms]\n", time_Fw.elapsedTime());
 }
 
 void sliceI_call(FLOAT *sliceI_d, FLOAT *I_d, int pad_x[2], int pad_y[2],
@@ -288,11 +296,13 @@ void sliceI_call(FLOAT *sliceI_d, FLOAT *I_d, int pad_x[2], int pad_y[2],
 	block.y = BLK_Y;
 	grid.y = GRD_Y;
 	cudaError_t cudaStatus;
-
+	
+	cudaTimer time_slice;
+	time_slice.start();
 	sliceI_kernel <<<grid, block >>>(sliceI_d, I_d, pad_x[0], pad_x[1], pad_y[0], pad_y[1], 
 		start_x, start_y, stop_x, stop_y, 
 		Y, X, C, N);
-
+	time_slice.stop();
 	// Check for any errors launching the kernel
 	cudaStatus = cudaGetLastError();
 	if (cudaStatus != cudaSuccess) {
@@ -309,6 +319,8 @@ void sliceI_call(FLOAT *sliceI_d, FLOAT *I_d, int pad_x[2], int pad_y[2],
 		//goto Error;
 		exit(1);
 	}
+	summa_time += time_slice.elapsedTime();
+	printf("sliceI_kernel time: %f [ms]\n", time_slice.elapsedTime());
 }
 
 void Iw_call(FLOAT *sliceI_d, FLOAT *Iw_d,
@@ -320,8 +332,11 @@ void Iw_call(FLOAT *sliceI_d, FLOAT *Iw_d,
 	block.y = BLK_Y;
 	grid.y = GRD_Y;
 	cudaError_t cudaStatus;
-
+	
+	cudaTimer time_Iw;
+	time_Iw.start();
 	Iw_kernel <<<grid, block >>>(sliceI_d, Iw_d, x, y, Xw, Yw, D, Y, X, C, N);
+	time_Iw.stop();
 
 	// Check for any errors launching the kernel
 	cudaStatus = cudaGetLastError();
@@ -339,6 +354,8 @@ void Iw_call(FLOAT *sliceI_d, FLOAT *Iw_d,
 		//goto Error;
 		exit(1);
 	}
+	summa_time += time_Iw.elapsedTime();
+	printf("Iw_kernel time: %f [ms]\n", time_Iw.elapsedTime());
 }
 
 void cpy_mat12_call(FLOAT *Fw_d, FLOAT *Iw_d,
@@ -353,7 +370,10 @@ void cpy_mat12_call(FLOAT *Fw_d, FLOAT *Iw_d,
 	grid.y = GRD_Y;
 	cudaError_t cudaStatus;
 
+	cudaTimer time_cpy_mat12;
+	time_cpy_mat12.start();
 	cpy_mat12_kernel <<<grid, block >>>(Fw_d, Iw_d, mat1T_d, mat2_d, s, t, Xw, Yw, D, C, N, K);
+	time_cpy_mat12.stop();
 
 	// Check for any errors launching the kernel
 	cudaStatus = cudaGetLastError();
@@ -370,6 +390,8 @@ void cpy_mat12_call(FLOAT *Fw_d, FLOAT *Iw_d,
 		//goto Error;
 		exit(1);
 	}
+	summa_time += time_cpy_mat12.elapsedTime();
+	printf("cpy_mat12_kernel time: %f [ms]\n", time_cpy_mat12.elapsedTime());
 }
 
 void MatMul_call(FLOAT *mat1T_d, FLOAT *mat2_d, FLOAT *matout_d,
@@ -383,8 +405,10 @@ void MatMul_call(FLOAT *mat1T_d, FLOAT *mat2_d, FLOAT *matout_d,
 	grid_mm.y = K / TILE_WIDTH;
 	cudaError_t cudaStatus;
 
+	cudaTimer time_MatMul;
+	time_MatMul.start();
 	MatMul_kernel <<<grid_mm, block_mm >>>(mat1T_d, mat2_d, matout_d, K, C, C, Yw*Xw*N, C, Yw*Xw*N);
-
+	time_MatMul.stop();
 	// Check for any errors launching the kernel
 	cudaStatus = cudaGetLastError();
 	if (cudaStatus != cudaSuccess) {
@@ -400,6 +424,8 @@ void MatMul_call(FLOAT *mat1T_d, FLOAT *mat2_d, FLOAT *matout_d,
 		//goto Error;
 		exit(1);
 	}
+	summa_time += time_MatMul.elapsedTime();
+	printf("MatMul_kernel time: %f [ms]\n", time_MatMul.elapsedTime());
 }
 
 void cpy_to_Mw_call(FLOAT *Mw_d, FLOAT *matout_d,
@@ -412,8 +438,11 @@ void cpy_to_Mw_call(FLOAT *Mw_d, FLOAT *matout_d,
 	block.y = BLK_Y;
 	grid.y = GRD_Y;
 	cudaError_t cudaStatus;
-
+	
+	cudaTimer time_cpy_to_Mw;
+	time_cpy_to_Mw.start();
 	cpy_to_Mw_kernel <<<grid, block >>>(Mw_d, matout_d, s, t, Xw, Yw, D, N, K);
+	time_cpy_to_Mw.stop();
 
 	// Check for any errors launching the kernel
 	cudaStatus = cudaGetLastError();
@@ -430,9 +459,11 @@ void cpy_to_Mw_call(FLOAT *Mw_d, FLOAT *matout_d,
 		//goto Error;
 		exit(1);
 	}
+	summa_time += time_cpy_to_Mw.elapsedTime();
+	printf("cpy_to_Mw_kernel time: %f [ms]\n", time_cpy_to_Mw.elapsedTime());
 }
 
-void Ow_call(FLOAT *Ow_d, FLOAT *Mw_d,
+FLOAT Ow_call(FLOAT *Ow_d, FLOAT *Mw_d,
 	int plen, int qlen, int Xw, int Yw,
 	int p, int q,
 	int x, int y,
@@ -444,8 +475,11 @@ void Ow_call(FLOAT *Ow_d, FLOAT *Mw_d,
 	block.y = BLK_Y;
 	grid.y = GRD_Y;
 	cudaError_t cudaStatus;
-
+	
+	cudaTimer time_Ow;
+	time_Ow.start();
 	Ow_kernel <<<grid, block >>>(Ow_d, Mw_d, plen, qlen, Xw, Yw, p, q, x, y, D, N, K);
+	time_Ow.stop();
 	// Check for any errors launching the kernel
 	cudaStatus = cudaGetLastError();
 	if (cudaStatus != cudaSuccess) {
@@ -461,4 +495,6 @@ void Ow_call(FLOAT *Ow_d, FLOAT *Mw_d,
 		//goto Error;
 		exit(1);
 	}
+	printf("Ow_kernel time: %f [ms]\n", time_Ow.elapsedTime());
+	return (summa_time += time_Ow.elapsedTime());
 }
