@@ -1,8 +1,4 @@
-
-#include <stdio.h>
-#include <stdlib.h>
-#include "debug.h"
-#include "kernels.h"
+#include "xprop_winograd.h"
 
 cudaError_t xprop_winograd(FLOAT *I, int lenI, FLOAT *F, int lenF, FLOAT *O, int lenO, int padding[2])
 {
@@ -122,7 +118,7 @@ cudaError_t xprop_winograd(FLOAT *I, int lenI, FLOAT *F, int lenF, FLOAT *O, int
 		fprintf(stderr, "cudaMemset failed!");
 		goto Error;
 	}
-	
+
 	Fw_call(F_d, lenF, Fw_d, lenFw, D, C, K);
 
 	for (int y = 0; y < Yw; ++y) {
@@ -138,8 +134,8 @@ cudaError_t xprop_winograd(FLOAT *I, int lenI, FLOAT *F, int lenF, FLOAT *O, int
 				goto Error;
 			}
 
-			sliceI_call(sliceI_d, I_d, pad_x, pad_y, 
-				start_x, start_y, stop_x, stop_y, 
+			sliceI_call(sliceI_d, I_d, pad_x, pad_y,
+				start_x, start_y, stop_x, stop_y,
 				Y, X, C, N);
 
 			Iw_call(sliceI_d, Iw_d, x, y, Xw, Yw, D, Y, X, C, N);
@@ -181,7 +177,7 @@ cudaError_t xprop_winograd(FLOAT *I, int lenI, FLOAT *F, int lenF, FLOAT *O, int
 			}
 
 			MatMul_call(mat1T_d, mat2_d, matout_d, K, C, C, Yw*Xw*N, C, Yw*Xw*N,
-				Xw,Yw,K,N,C);
+				Xw, Yw, K, N, C);
 
 			cpy_to_Mw_call(Mw_d, matout_d, s, t, Xw, Yw, D, N, K);
 		}
@@ -274,81 +270,4 @@ Error:
 	cudaFree(sliceI_d);
 
 	return cudaStatus;
-}
-
-
-int main()
-{
-	FLOAT *I; //[32][4][4][32]; 
-	int lenI = 32 * 4 * 4 * 32;
-	FLOAT *F; //[32][3][3][32];
-	int lenF = 32 * 3 * 3 * 32;
-	FLOAT *Ow; // [32][4][4][32];
-	int lenOw = 32 * 4 * 4 * 32;
-	int padding[2];
-	// Init input values
-	I = (FLOAT *)malloc(sizeof(FLOAT)*lenI);
-	if (NULL == I) {
-		return (-1);
-	}
-	F = (FLOAT *)malloc(sizeof(FLOAT)*lenF);
-	if (NULL == F) {
-		return (-1);
-	}
-	Ow = (FLOAT *)malloc(sizeof(FLOAT)*lenOw);
-	if (NULL == Ow) {
-		return (-1);
-	}
-
-	padding[0] = 1; padding[1] = 1;
-	int k = 0;
-	for (int a = 0; a < lenI; ++a) {
-		//I[a] = (FLOAT)k++;
-		I[a] = 1.0;
-	}
-	for (int a = 0; a < lenF; ++a) {
-		//F[a] = (FLOAT)k++;
-		F[a] = 1.0;
-	}
-#ifdef DEBUG
-	FILE *F_file = fopen("F_gpu.txt","w");
-	if (NULL == F_file) {
-		printf("Error opening file!\n");
-		exit(1);
-	}
-	for (int a = 0; a < lenF; ++a) {
-		fprintf(F_file,"%f;", F[a]);
-	}
-	fclose(F_file);
-#endif // DEBUG
-	
-	// Invoke Winograd convolution kernel.
-	cudaError_t cudaStatus = xprop_winograd(I, lenI, F, lenF, Ow, lenOw, padding);
-	if (cudaStatus != cudaSuccess) {
-		fprintf(stderr, "xprop_winograd failed!");
-		return 1;
-	}
-
-	// cudaDeviceReset must be called before exiting in order for profiling and
-	// tracing tools such as Nsight and Visual Profiler to show complete traces.
-	cudaStatus = cudaDeviceReset();
-	if (cudaStatus != cudaSuccess) {
-		fprintf(stderr, "cudaDeviceReset failed!");
-		return 1;
-	}
-
-	FILE *Ow_file = fopen("Ow_gpu.txt","w");
-	if (NULL == Ow_file) {
-		printf("Error opening file!\n");
-		exit(1);
-	}
-	for (int a = 0; a < lenOw; ++a) {
-		fprintf(Ow_file, "%f;", Ow[a]);
-	}
-	fclose(Ow_file);
-
-	free(I);
-	free(F);
-	free(Ow);
-	return 0;
 }
